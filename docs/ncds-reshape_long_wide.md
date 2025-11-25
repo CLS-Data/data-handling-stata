@@ -19,13 +19,6 @@ In this section, we show how to reshape data from long to wide (and vice
 versa). To demonstrate, we use data from Sweeps 4 (23y) and 8 (50y) on
 cohort member’s height and weight collected.
 
-The commands we use are:
-
-``` stata
-clear all
-set more off
-```
-
 # Reshaping Raw Data from Wide to Long
 
 We begin by loading the data from each sweep and merging these together
