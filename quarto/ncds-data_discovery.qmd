@@ -1,0 +1,88 @@
+---
+layout: default
+title: "Data Discovery"
+nav_order: 2
+parent: NCDS
+format: 
+  gfm:
+    variant: +yaml_metadata_block
+jupyter: stata
+---
+
+- [Download the Stata script for this page](../do_files/ncds-data_discovery.do)
+
+# Introduction
+
+In this section, we show a few `Stata` commands for exploring NCDS data; as noted, historical sweeps of the NCDS did not use modern metadata standards, so finding a specific variable can be challenging. Variables do not always have names that are descriptive or follow a consistent naming convention across sweeps. (The variable for cohort member sex is `N622`, for example.) In what follows, we will use the `Stata` commands to find variables for cohort members' height, which has been collected in many of the sweeps.
+
+# `lookfor`
+
+The `lookfor` command allows one to search for variables in a dataset by keyword. It searches variable names as well as associated metadata. Below, we read in the NCDS 55-year sweep dataset which contains derived variables (`55y/ncds_2013_derived.dta`) and use `lookfor` to search for variables related to `"height"`.
+
+```{stata}
+use "55y/ncds_2013_derived.dta", clear
+lookfor "height"
+```
+
+# `codebook`
+
+The NCDS datasets that are downloadable from the UK Data Service come bundled with data dictionaries within the `mrdoc` subfolder. However, these are limited in some ways. The `codebook` command enables the creation of data dictionaries. Below we create a codebook for the NCDS 55-year sweep dataset (the open dataset), saving it in a log file.
+
+```         
+log using codebook.log, replace
+    codebook
+log close
+```
+
+![Codebook printed in log file](../images/ncds-data_discovery.png)
+
+# Create a Lookup Table Across All Datasets
+
+Creating the `lookfor` and `codebook` one dataset at a time does not allow one to get a quick overview of the variables available in the NCDS, including the sweeps repeatedly measured characteristics are available in.
+
+Below we create a dataset that contains information on variables within all the `.dta` files in the NCDS folder.
+
+-   The code begins by creating a dataset of all of the files in the current directory (and subdirectories) which contain the string `.dta` (i.e., are Stata datasets). This dataset has one row per file. We exclude files from the UKDS subfolder (`drop if strmatch(dirname, "*UKDS*")`), as these repeat datasets contained in the sweep-specific folders. (As as a reminder, we have organised the data files so that each sweep [has its own folder, which is named according to the age of follow-up](https://cls-data.github.io/docs/mcs-sweep_folders.html)).
+-   Next, the code loops over each row of the dataset and uses `describe *, replace` to create a new dataset containing variable names and labels for variables in a given file, with append then used to stack the datasets generated from `describe` together in long format.
+    -   `tempfile` creates a temporary file which can be used to save data and which deletes the file when the code has finished running. The name of the dataset is stored in a `local` macro, with the name specified after `tempfile` (here `file_list`). `local` macros can then be referenced (i.e., their contents used placing the ``` `' ``` ticks around the macro name).
+    -   `_N` is an inbuilt variable equal to the number of rows in the data
+    - `local ...` creates a local macro.
+    - ```forvalues i = 1/`n_files'``` loops over the numbers from 1 to `n_files`, where `n_files` is the number of files in the BCS70 folder. The current value of the loop (1, 2, ..., `n_files`) is stored in the local macro `i`.
+    - ```use ... in `i', clear```  reads in the `i`th row of the dataset containing the list of files.
+    - `local filename = filename[1]` stores the name of the file in the local macro `filename`. The `[1]` indicates that we are taking the value from the first row of the dataset (there is only one row in the dataset at this point, as we are looping over each file one at a time).
+    
+```         
+// ssc install filelist // Uncomment if not already installed
+filelist, pattern("*.dta")
+drop if strmatch(dirname, "*UKDS*")
+tempfile file_list
+save `file_list'
+
+clear
+tempfile all_vars
+save `all_vars', emptyok
+
+use `file_list', clear
+local n_files = _N
+forvalues i = 1/`n_files' {
+  use `file_list' in `i', clear
+  local filename = filename[1]
+  local dirname = dirname[1]
+  use "`dirname'/`filename'" in 1, clear
+  describe *, replace
+  gen dir = "`dirname'"
+  gen file = "`filename'"
+  append using `all_vars'
+  save `all_vars', replace
+}
+```
+
+We can use the resulting datasets to search for variables with `"smok"` or `"cigar"` in their labels.
+
+```         
+// Not printing output to avoid excessive length.
+use `all_vars', clear
+gen name_low = lower(name)
+gen varlab_low = lower(varlab)
+list dir file name varlab if strmatch(varlab_low, "*smok*") | strmatch(varlab_low, "*cigar*")
+```

@@ -1,0 +1,118 @@
+---
+layout: default
+title: "Reshaping Data from Long to Wide (or Wide to Long)"
+nav_order: 7
+parent: MCS
+format: 
+  gfm:
+    variant: +yaml_metadata_block
+jupyter: stata
+---
+
+- [Download the Stata script for this page](../do_files/mcs-reshape_long_wide.do)
+
+# Introduction
+
+In this section, we show how to reshape data from long to wide (and vice versa). We do this for both raw and cleaned data. To demonstrate, we use data on cohort member's height and weight collected in Sweeps 3-7.
+
+# Reshaping Raw Data from Wide to Long
+
+We begin by loading the data from each sweep and merging these together into a single wide format data frame; see [Combining Data Across Sweeps](https://cls-data.github.io/docs/mcs-merging_across_sweeps.html) for further explanation on how this is achieved and in particular how to create `programs` (functions) in Stata. Note, the names of the height and weight variables in Sweep 5 (`ECHTCMA0` and `ECWTCMAO`) diverge slightly from the convention used for other sweeps (`[C-G]CHTCM00` and `[C-G]CWTCM00` where `[C-G]` denotes sweep). To make the names of the columns in the wide dataset consistent (useful preparation for reshaping data), we rename the Sweep 5 variables so they follow the convention for the other sweeps.
+
+```{stata}
+global fups 0 3 5 7 11 14 17
+
+capture program drop load_anthro_wide
+program define load_anthro_wide, rclass
+	args sweep
+	
+	local stublist CNUM00 CHTCMA0 CHTCM00 CWTCMA0 CWTCM00
+  local prefix : word `sweep' of `c(ALPHA)'
+	local fup : word `sweep' of ${fups}
+	
+	local prefixed_list ""
+	foreach stubvar of local stublist {
+		local prefixed_list "`prefixed_list' `prefix'`stubvar'"
+	}
+	
+	quietly describe using "`fup'y/mcs`sweep'_cm_interview.dta", varlist
+	local varlist `r(varlist)'
+	local in_file: list prefixed_list & varlist
+	
+	use MCSID `in_file' using "`fup'y/mcs`sweep'_cm_interview.dta", clear
+	rename *CNUM00 CNUM00
+end
+
+load_anthro_wide 1
+
+tempfile next_merge
+quietly forvalues sweep = 2/7 {	
+    preserve
+		load_anthro_wide `sweep'
+		save "`next_merge'", replace
+	restore
+	merge 1:1 MCSID CNUM00 using "`next_merge'", nogenerate
+}
+
+rename ?C?TCMA0 ?C?TCM00
+
+sort MCSID CNUM00 
+list * in 1/10
+```
+
+We can reshape the dataset into long format (one row per person x sweep combination) using the `reshape long` command. To use `reshape long`, Stata requires variables to be named in a specific format: `stub` + `suffix`. Here, we want our stubs to be `CHTCM00` and `CWTCM00`, and our suffixes to be the sweep letters. First, we rename the variables to match this format. Then in the `reshape long` command, we specify the stubs in the main command, with the identifier and suffix variables specified in the `i()` and `j()` command options respectively. Note the identifier (`i()`) exists in the data, while the suffix variable (`j()`) is created during the reshape process.
+
+```{stata}
+rename *CWTCM00 CWTCM00*
+rename *CHTCM00 CHTCM00*
+reshape long CWTCM00 CHTCM00, i(MCSID CNUM00) j(sweep_letter) string
+list * in 1/10
+```
+
+# Reshaping Raw Data from Long to Wide
+
+We can reshape the data from long to wide format using the `reshape wide` command. We again specify the stubs in the main command, and the identifier and suffix variables in `i()` and `j()`, respectively. The suffix variable exists in the data, but the value of this are used to create new variable names during the reshape process.
+
+```{stata}
+reshape wide CHTCM00 CWTCM00, i(MCSID CNUM00) j(sweep_letter) string
+rename CWTCM00* *CWTCM00
+rename CHTCM00* *CHTCM00
+list in 1/10
+```
+
+# Reshaping Cleaned Data from Long to Wide
+
+It is likely that you will not just need to reshape raw data, but cleaned data too. In the next two sections we offer advice on naming variables so that they are easy to select and reshape in long or wide formats. First, we clean the long dataset by converting the `CNUM00` and `sweep` columns to integers, creating a new column for follow-up time, and creating new `height` and `weight` variables that replace negative values in the raw height and weight data with `.` (as well as giving these variables more easy-to-understand names).
+
+```{stata}
+rename *CWTCM00 CWTCM00*
+rename *CHTCM00 CHTCM00*
+reshape long CHTCM00 CWTCM00, i(MCSID CNUM00) j(sweep_letter) string
+gen sweep = (strpos("`c(ALPHA)'", sweep_letter) + 1) / 2
+gen fup = word("${fups}", sweep)
+destring fup, replace
+
+gen height = CHTCM00 if CHTCM00 > 0
+gen weight = CWTCM00 if CWTCM00 > 0
+keep MCSID CNUM00 fup height weight
+list in 1/10
+```
+
+`c(ALPHA)` is an inbuilt macro which contains the letters of the alphabet in upper-case with spaces between letters. `` strpos("`c(ALPHA)'", alt_letter) `` finds the position of the `alt_letter` (i.e., A, B, C, or D) in this string. Dividing by 2 and adding 1 converts this to the corresponding `APNUM00` value (e.g., C would be in the 5th position in the string \[`A B C ...`\]).
+
+
+To reshape the clean data from long to wide format, we can use the `reshape wide` command as before.
+
+```{stata}
+reshape wide height weight, i(MCSID CNUM00) j(fup)
+list in 1/10
+```
+
+# Reshaping Cleaned Data from Wide to Long
+
+Finally, we can reshape the clean wide dataset back to long format using the `reshape long` command.
+
+```{stata}
+reshape long height weight, i(MCSID CNUM00) j(fup)
+list in 1/10
+```

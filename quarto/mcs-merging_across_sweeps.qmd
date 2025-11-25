@@ -1,0 +1,178 @@
+---
+layout: default
+title: "Combining Data Across Sweeps"
+nav_order: 5
+parent: MCS
+format: 
+  gfm:
+    variant: +yaml_metadata_block
+jupyter: stata
+---
+
+- [Download the Stata script for this page](../do_files/mcs-merging_across_sweeps.do)
+
+# Introduction
+
+In this section, we show how to combine MCS data across sweeps, assuming the data to be merged are in a consistent format (e.g., one row per family); for information on munging data to have a consistent structure see the page [*Combining Data Within a Sweep*](https://cls-data.github.io/docs/mcs-merging_within_sweep.html)
+
+As an example, we use data on cohort members' height, which was recorded in Sweeps 2-7 and is available in the `mcs[2-7]_cm_interview.dta` files. These files contain one row per cohort-member. As a reminder, we have organised the data files so that each sweep [has its own folder, which is named according to the age of follow-up](https://cls-data.github.io/docs/mcs-sweep_folders.html) (e.g., 3y for the second sweep).
+
+We begin by combining data from the second and third sweeps, showing how to combine these datasets in **wide** (one row per observational unit) and **long** (multiple rows per observational unit) formats by *merging* and *appending*, respectively. We then show how to combine data from multiple sweeps *programmatically* using loops and programs.
+
+# Merging Across Sweeps
+
+The variable `[B-G]CHTCM00` contains the height of the cohort member at Sweep 2-7, except for Sweep 5, where the variable is called `ECHTCMA0`. [The cohort-member identifiers are stored across two variables](https://cls-data.github.io/docs/mcs-data_structures.html) in the `mcs[2-7]_cm_interview.dta` files: `MCSID` and `[A-G]CNUM00`. `MCSID` is the family identifier and `[A-G]CNUM00` identifies the cohort member within the family. We will use the `use` command to read in the data from the second and third sweeps, keeping only the variables we need (the two identifier variables and height). We also rename the cohort-member number variable to a consistent name, `CNUM00`, in both datasets to ensure consistency as Stata requires the same variable names to merge datasets.
+
+```{stata}
+* Load 3y data
+use MCSID BCNUM00 BCHTCM00 using "3y/mcs2_cm_interview.dta", clear
+rename BCNUM00 CNUM00
+save "temp_3y.dta", replace
+
+* Load 5y data
+use MCSID CCNUM00 CCHTCM00 using "5y/mcs3_cm_interview.dta", clear
+rename CCNUM00 CNUM00
+save "temp_5y.dta", replace
+```
+
+We can merge these datasets by row using the `merge` command. We specify `1:1` to indicate a one-to-one merge on the identifiers `MCSID` and `CNUM00`  - i.e., there is only one observation per cohort member (`bcsid`) in each dataset.
+
+```{stata}
+use "temp_3y.dta", clear
+merge 1:1 MCSID CNUM00 using "temp_5y.dta"
+list * in 1/10
+```
+
+The `_merge` variable indicates the result of the merge: `1` means the observation was only in the master dataset (42y), `2` means it was only in the using dataset (51y), and `3` means it was in both. `keep if _merge ...` can be used to keep certain observations if required (e.g., `keep if _merge == 3` will retain a balance panel of individuals appearing in both datasets). Alternatively, `merge ..., keep(...)` can be used to achieve the same result.
+
+# Appending Sweeps
+
+To put the data into long format, we can use the `append` command. (In this case, the data will have one row per cohort-member x sweep combination.) To work properly, we need to name the variables consistently across sweeps, which here means removing the sweep-specific prefixes (e.g., the letter `B` from `BCNUM00` and `BCHTCM00` in `df_3y`). We also need to add a variable to identify the sweep the data comes from. Below, we use `rename` to remove the prefixes and `gen` (short for `generate`) to create a `sweep` variable.
+
+```{stata}
+use "temp_3y.dta", clear
+rename B* *
+gen sweep = 2
+save "temp_3y_long.dta", replace
+
+use "temp_5y.dta", clear
+rename C* *
+gen sweep = 3
+save "temp_5y_long.dta", replace
+```
+
+Now the data have been prepared, we can use `append` to stack the datasets.
+
+```{stata}
+use "temp_3y_long.dta", clear
+append using "temp_5y_long.dta"
+sort MCSID CNUM00 sweep
+list MCSID CNUM00 sweep CHTCM00 in 1/10
+```
+
+Notice that with `append` a cohort member has only as many rows of data as the times they appeared in Sweeps 2 and 3. The `fillin` command can be used to create missing rows, which can be useful if you need to generate a balanced panel of observations.
+
+```{stata}
+fillin MCSID CNUM00 sweep
+list * in 1/10
+```
+
+# Combing Sweeps Programatically
+
+Combining sweeps manually can become tedious when more than two sweeps need to be combined. Instead, loops can be used automate the process. Below we show how to merge and append multiple sweeps together with relatively little code.
+
+## Merging Programmatically
+
+Before merging the datasets together, we need to load the data for each sweep. We can do this by defining a [`program`](https://www.stata.com/manuals/pprogram.pdf), `load_height_wide`, which takes a single argument `sweep` and loads the height data for that sweep. This program is written general enough that it can be used to load data from any of the sweeps 2-7, even where a specific height variable is not contained in the dataset (e.g., Sweep 5).
+
+-   The code begins by creating a `global` macro, `fups` which contains the set of ages at which MCS participants have been followed up. Macros contain text that are associated with a name (the global `fups` contains the string `0 3 5 7 11 14 17`). These are useful in Stata programming as an alternative way of storing data to columns in a dataset. Macros are either `global` or `local`. Global macros persist across the entire Stata session, while local macros (created with the `local` command) only persist within the program or do-file in which they are created. For more on macros, see this [Stata help page](https://www.stata.com/manuals/pmacro.pdf).
+-   `capture program drop ...` attempts to delete the program, with `capture` preventing an error if it does not exist.
+-   `args sweep` specifies that the program takes a single argument, which is transferred into the local macro `sweep` to be used within the `program` code.
+-   The program then creates a list of variable stubs (the parts of the variable names that are consistent across sweeps) and prefixes (the parts of the variable names that vary across sweeps). The prefix is determined by taking the `sweep` argument and using it to index into the list of letters `A-G` (stored in the built-in macro `c(ALPHA)`). The follow-up age is also determined by indexing into the `fups` global macro.
+-   The variable stubs are then looped over to add the prefix to each stub.
+-   The program then uses `describe ... , varlist` to get a list of variables in the dataset for the given sweep. The `r(varlist)` return value from `describe` is then stored in the local macro `varlist`. 
+-   Next, the code uses `local in_file: list prefixed_list & varlist` (a macro extended function) to create a new local macro, `in_file`, which contains the intersection of the list of prefixed variable names and the list of variables in the dataset. This ensures that only variables which exist in the dataset are included in `in_file`.
+-   Finally, the program uses ```use MCSID `in_file' using ...``` to read in the identifier variables and the height variable from the relevant dataset.
+
+```{stata}
+global fups 0 3 5 7 11 14 17
+
+capture program drop load_height_wide
+program define load_height_wide
+	args sweep
+	
+	local stublist CNUM00 CHTCMA0 CHTCM00
+  local prefix : word `sweep' of `c(ALPHA)'
+	local fup : word `sweep' of ${fups}
+	
+	local prefixed_list ""
+	foreach stubvar of local stublist {
+		local prefixed_list "`prefixed_list' `prefix'`stubvar'"
+	}
+	
+	describe using "`fup'y/mcs`sweep'_cm_interview.dta", varlist
+	local varlist `r(varlist)'
+	local in_file: list prefixed_list & varlist
+	
+	use MCSID `in_file' using "`fup'y/mcs`sweep'_cm_interview.dta", clear
+end
+
+load_height_wide 3
+list * in 1/10
+```
+
+We can use a loop to load and merge the data for sweeps 3-7. We first load the data for Sweep 3 (`load_height_wide 3`), then loop over Sweeps 4-7, loading each dataset in turn and merging it with the master dataset. `preserve` and `restore` are used to temporarily save and restore the master dataset while loading each new sweep's data.
+
+```{stata}
+load_height_wide 3
+rename *CNUM00 CNUM00
+
+tempfile next_merge
+forvalues sweep = 4/7 {	
+    preserve
+  		load_height_wide `sweep'
+  		rename *CNUM00 CNUM00
+  		save "`next_merge'", replace
+	restore
+	merge 1:1 MCSID CNUM00 using "`next_merge'", nogenerate
+}
+
+sort MCSID CNUM00 
+list * in 1/10
+```
+
+## Appending Programmatically
+
+Programatically appending datasets together is slightly more straightforward. First, we create a program, `load_height_long`, to load the height data from a given sweep and format it so that it can be appended to the other sweeps (i.e., giving variables consistent names). This calls the `load_height_wide` program defined above to load the data, then renames the variables to remove the sweep-specific prefixes and creates a `fup` variable to identify the sweep.
+
+```{stata}
+capture program drop load_height_long
+program define load_height_long, rclass
+	args sweep
+	
+	load_height_wide `sweep'
+    local prefix : word `sweep' of `c(ALPHA)'
+	rename `prefix'* *
+	rename CHTCM?0 CHTCM00
+	local fup : word `sweep' of ${fups}
+	gen fup = `fup', after(CNUM00)	
+end
+```
+
+To load data from sweeps 2-7 and append them together, we can again use a loop. We first load the data for Sweep 3 (`load_height_long 3`), then loop over Sweeps 4-7 to append these in, again using `preserve` and `restore` to temporarily save and restore the master dataset while loading each new sweep's data.
+
+```{stata}
+load_height_long 3
+
+tempfile next_append
+forvalues sweep = 4/7 {	
+  preserve
+		load_height_long `sweep'
+		save "`next_append'", replace
+	restore
+  append using "`next_append'"
+}
+
+sort MCSID CNUM00 fup
+list * in 1/10
+```
