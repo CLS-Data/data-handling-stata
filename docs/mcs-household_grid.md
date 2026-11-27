@@ -339,4 +339,4 @@ determine maternal and paternal age at birth, and so on.
 
 [^1]: For more on reshaping data, see [*Reshaping Data from Long to Wide
     (or Wide to
-    Long)*](https://cls-data.github.io/docs/mcs-reshape_long_wide.html).
+    Long)*](https://cls-data.github.io/data-handling-stata/docs/mcs-reshape_long_wide.html).

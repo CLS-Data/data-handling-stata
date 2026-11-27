@@ -191,7 +191,7 @@ using the `mcs2_parent_derived` dataset. This involves merging in
 relationship information from the household grid and subsetting the rows
 so we are left with data for mothers only (see [*Working with the
 Household
-Grid*](https://cls-data.github.io/docs/mcs-household_grid.html). We
+Grid*](https://cls-data.github.io/data-handling-stata/docs/mcs-household_grid.html). We
 separately filter the household grid for mothers only
 (`BHCREL00 == 7 Natural Parent` and `BHPSEX00 == 2 [Female]`) and select
 the highest education level variable (`BDDNVQ00`) from the

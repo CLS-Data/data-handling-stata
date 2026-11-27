@@ -81,7 +81,7 @@ There are seven members in this family, one of whom is a cohort member (`APNUM00
 
 If we want to find the particular person occupying a specific relationship for an individual (e.g., we want to know the `[A-G]PNUM00` of the person's partner), we need to reshape the data into long-format with one row per ego-alt relationship within a family. For instance, if we want to find each person's spouse (conditional on one being present), we can do the following:[^1]
 
-[^1]: For more on reshaping data, see [*Reshaping Data from Long to Wide (or Wide to Long)*](https://cls-data.github.io/docs/mcs-reshape_long_wide.html).
+[^1]: For more on reshaping data, see [*Reshaping Data from Long to Wide (or Wide to Long)*](https://cls-data.github.io/data-handling-stata/docs/mcs-reshape_long_wide.html).
 
 ```{stata}
 reshape long AHPREL, i(MCSID APNUM00) j(alt) string
