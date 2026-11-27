@@ -21,7 +21,7 @@ As an example, we use data on cohort members’ weight. These are
 contained in files which have one row per cohort-member. As a reminder,
 we have organised the data files so that each sweep [has its own folder,
 which is named according to the age of
-follow-up](https://cls-data.github.io/docs/ncds-sweep_folders.html)
+follow-up](https://cls-data.github.io/data-handling-stata/docs/ncds-sweep_folders.html)
 (e.g., 55y for the ninth major sweep).
 
 We begin by combining data from the Sweeps 4 (23y) and Sweep 8 (50y),
@@ -31,7 +31,7 @@ formats by *merging* and *appending*, respectively. Because variable
 names change between sweeps in unpredictable ways, it is not
 straightforwardly possible to combine data from multiple sweeps
 *programmatically* (as we are able to do for, e.g., the
-[MCS](https://cls-data.github.io/docs/mcs-merging_across_sweeps.html)).
+[MCS](https://cls-data.github.io/data-handling-stata/docs/mcs-merging_across_sweeps.html)).
 
 # Merging Across Sweeps
 

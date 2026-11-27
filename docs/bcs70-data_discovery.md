@@ -78,7 +78,7 @@ all the `.dta` files in the BCS70 folder.
   contained in the sweep-specific folders. (As as a reminder, we have
   organised the data files so that each sweep [has its own folder, which
   is named according to the age of
-  follow-up](https://cls-data.github.io/docs/bcs70-sweep_folders.html)).
+  follow-up](https://cls-data.github.io/data-handling-stata/docs/bcs70-sweep_folders.html)).
 - Next, the code loops over each row of the dataset and uses
   `describe *, replace` to create a new dataset containing variable
   names and labels for variables in a given file, with append then used

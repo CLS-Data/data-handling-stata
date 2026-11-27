@@ -17,7 +17,7 @@ In this section, we show how to reshape data from long to wide (and vice versa).
 
 # Reshaping Raw Data from Wide to Long
 
-We begin by loading the data from each sweep and merging these together into a single wide format data frame; see [Combining Data Across Sweeps](https://cls-data.github.io/docs/mcs-merging_across_sweeps.html) for further explanation on how this is achieved and in particular how to create `programs` (functions) in Stata. Note, the names of the height and weight variables in Sweep 5 (`ECHTCMA0` and `ECWTCMAO`) diverge slightly from the convention used for other sweeps (`[C-G]CHTCM00` and `[C-G]CWTCM00` where `[C-G]` denotes sweep). To make the names of the columns in the wide dataset consistent (useful preparation for reshaping data), we rename the Sweep 5 variables so they follow the convention for the other sweeps.
+We begin by loading the data from each sweep and merging these together into a single wide format data frame; see [Combining Data Across Sweeps](https://cls-data.github.io/data-handling-stata/docs/mcs-merging_across_sweeps.html) for further explanation on how this is achieved and in particular how to create `programs` (functions) in Stata. Note, the names of the height and weight variables in Sweep 5 (`ECHTCMA0` and `ECWTCMAO`) diverge slightly from the convention used for other sweeps (`[C-G]CHTCM00` and `[C-G]CWTCM00` where `[C-G]` denotes sweep). To make the names of the columns in the wide dataset consistent (useful preparation for reshaping data), we rename the Sweep 5 variables so they follow the convention for the other sweeps.
 
 ```{stata}
 global fups 0 3 5 7 11 14 17

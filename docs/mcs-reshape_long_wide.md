@@ -23,7 +23,7 @@ data on cohort member’s height and weight collected in Sweeps 3-7.
 
 We begin by loading the data from each sweep and merging these together
 into a single wide format data frame; see [Combining Data Across
-Sweeps](https://cls-data.github.io/docs/mcs-merging_across_sweeps.html)
+Sweeps](https://cls-data.github.io/data-handling-stata/docs/mcs-merging_across_sweeps.html)
 for further explanation on how this is achieved and in particular how to
 create `programs` (functions) in Stata. Note, the names of the height
 and weight variables in Sweep 5 (`ECHTCMA0` and `ECWTCMAO`) diverge

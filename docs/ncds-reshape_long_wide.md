@@ -23,7 +23,7 @@ cohort member’s height and weight collected.
 
 We begin by loading the data from each sweep and merging these together
 into a single *wide* format data frame; see [Combining Data Across
-Sweeps](https://cls-data.github.io/docs/ncds-merging_across_sweeps.html)
+Sweeps](https://cls-data.github.io/data-handling-stata/docs/ncds-merging_across_sweeps.html)
 for further explanation on how this is achieved. Note, the names of the
 height and weight variables in Sweep 4 and Sweep 8 follow a similar
 convention, which is the exception rather than the rule in NCDS data.

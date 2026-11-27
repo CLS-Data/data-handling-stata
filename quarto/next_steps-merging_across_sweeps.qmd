@@ -1,0 +1,212 @@
+---
+layout: default
+title: "Combining Data Across Sweeps"
+nav_order: 4
+parent: Next Steps
+format:
+  gfm:
+    variant: +yaml_metadata_block
+jupyter: stata
+---
+
+- [Download the Stata script for this page](../do_files/next_steps-merging_across_sweeps.do)
+
+# Introduction
+
+In this section, we show how to combine Next Steps data across sweeps, assuming the data to be merged have one row per cohort member; for information on restructuring data that are not in this format see the page [*Combining Data Within A Sweep*](https://cls-data.github.io/data-handling-stata/docs/next_steps-merging_within_sweep.html).
+
+As an example, we use data on cohort members' GHQ-12 scores (a measure of psychological distress), which were recorded in Sweeps 2, 4, 8 and 9 (ages 15, 17, 25 and 32). The scores are available in the Sweep 2 and 4 young person files (`wave_two_lsype_young_person_2020.dta` and `wave_four_lsype_young_person_2020.dta`) and the Sweep 8 and 9 derived variable files (`ns8_2015_derived.dta` and `ns9_2022_derived_variables.dta`). These files contain one row per cohort member. All four are stored in the `safeguarded_eul` subfolder.
+
+We begin by combining data from the second and fourth sweeps, showing how to combine these datasets in **wide** (one row per observational unit) and **long** (multiple rows per observational unit) formats by *merging* and *appending*, respectively. We then show how to combine data from multiple sweeps *programmatically* using loops and programs. This requires a little more preparation than in, e.g., the [MCS](https://cls-data.github.io/data-handling-stata/docs/mcs-merging_across_sweeps.html), as the names of files and variables do not follow a single convention across the whole study.
+
+# Merging Across Sweeps
+
+The variables `W2ghq12scr` and `W4ghq12scr` contain the cohort member's GHQ-12 score at Sweep 2 and Sweep 4, respectively. [Variable names in Next Steps begin with a prefix denoting the sweep](https://cls-data.github.io/data-handling-stata/docs/next_steps-data_structures.html) (`W2`, `W4`), and in this case the rest of the name is the same in the two sweeps. Cohort members are identified with a single variable, `NSID`, which has the same name in every file. We will use the `use ... using` command to read in the data from the second and fourth sweeps, keeping only the variables we need (the identifier and GHQ-12 score). We save each as a new dataset (`temp_w2.dta` and `temp_w4.dta`) so that they can be loaded again below.
+
+```{stata}
+use NSID W2ghq12scr using "safeguarded_eul/wave_two_lsype_young_person_2020.dta", clear
+save "temp_w2.dta", replace
+
+use NSID W4ghq12scr using "safeguarded_eul/wave_four_lsype_young_person_2020.dta", clear
+save "temp_w4.dta", replace
+```
+
+We can merge these datasets by row using the `merge` command. We specify `1:1` to indicate a one-to-one merge on the identifier `NSID` - i.e., there is only one observation per cohort member (`NSID`) in each dataset.
+
+```{stata}
+use "temp_w2.dta", clear
+merge 1:1 NSID using "temp_w4.dta"
+list NSID W2ghq12scr W4ghq12scr _merge in 1/10
+// Use `keep if _merge == x` or run `merge ..., keep(x)` to keep a specific type of match/non-match.
+```
+
+By default, `merge` keeps the rows from both datasets, whether or not they are matched. The `_merge` variable indicates the result of the merge: `1` means the observation was only in the master dataset (Sweep 2), `2` means it was only in the using dataset (Sweep 4), and `3` means it was in both. As these datasets only contain rows for cohort members who took part in the sweep, the table printed by `merge` shows how many cohort members took part in just one of the two sweeps and how many took part in both. `keep if _merge ...` can be used to keep certain observations if required (e.g., `keep if _merge == 3` will retain a balanced panel of individuals appearing in both datasets). Alternatively, the `keep()` option of `merge` can be used to achieve the same result: `keep(match)` keeps individuals who appear in both datasets, `keep(master match)` keeps all of the individuals in the master dataset, and `keep(using match)` keeps all of the individuals in the using dataset. (Note, `list` shortens long variable names in the header of its output using a `~` - `W4ghq12scr` may appear as `W4ghq1~r`, for example - unless the column is already wide enough to show the name in full.)
+
+# Appending Sweeps
+
+To put the data into long format, we can use the `append` command. (In this case, the data will have one row per cohort-member x sweep combination.) To work properly, we need to name the variables consistently across sweeps, which here means removing the sweep-specific prefixes (e.g., the `W2` from `W2ghq12scr`). We also need to add a variable to identify the sweep the data comes from. Below, we use `rename` to remove the prefixes and `gen` (short for `generate`) to create a `sweep` variable. In `rename W2* *`, the `*` is a wildcard that stands for the rest of the variable name, so the command removes `W2` from the name of every variable that begins with these characters.
+
+```{stata}
+use "temp_w2.dta", clear
+rename W2* *
+gen sweep = 2
+save "temp_w2_long.dta", replace
+
+use "temp_w4.dta", clear
+rename W4* *
+gen sweep = 4
+save "temp_w4_long.dta", replace
+```
+
+Now the data have been prepared, we can use `append` to stack the datasets. The number of rows in the resulting dataset is equal to the sum of rows in the individual datasets. `append` can also handle datasets that do not contain exactly the same variables: a variable that is not present in one of the datasets is given missing values (`.`) in the rows that come from that dataset.
+
+```{stata}
+use "temp_w2_long.dta", clear
+append using "temp_w4_long.dta"
+sort NSID sweep
+list NSID sweep ghq12scr in 1/10
+```
+
+Notice that with `append` a cohort member has only as many rows of data as the times they appeared in Sweeps 2 and 4. This differs from `merge`, where an explicit missing value (`.`) is generated for the missing sweep. The `fillin` command can be used to create missing rows, which can be useful if you need to generate a balanced panel of observations from which to begin analysis with (e.g., when performing multiple imputation in long format). `fillin` also creates a variable, `_fillin`, which is equal to `1` for the rows it has added and `0` otherwise.
+
+```{stata}
+fillin NSID sweep
+list * in 1/10
+```
+
+Note, `rename` can also be used to ensure that variables use the same case in each sweep - for instance, `rename *, upper` converts every variable name in a dataset to upper case. This is useful in Next Steps as the use of upper and lower case in variable names sometimes varies in hard-to-predict ways across sweeps (e.g., `W1alceverYP` and `W4AlcEverYP`).
+
+# Combining Sweeps Programmatically
+
+Combining sweeps manually can become tedious when more than two sweeps need to be combined. Instead, loops can be used to automate the process. Below we show how to merge and append multiple sweeps together with relatively little code.
+
+In some studies, file and variable names follow a formula, so the name of the file and variable for a given sweep can be constructed from the sweep number. This is not the case in Next Steps. The sweep is written as a word in the names of files from Sweeps 1-7 (`wave_two_...`) and as a number in the names of files from Sweeps 8 and 9 (`ns8_...`), and the GHQ-12 score is named `W2ghq12scr` and `W4ghq12scr` in Sweeps 2 and 4 but `W8DGHQSC` and `W9DGHQSC` in Sweeps 8 and 9. A simple way of handling this is to create a set of lookup lists that give the sweep, file and variable to use. Below, we store these lists in three `global` macros: `sweeps`, `files` and `ghq_vars`. The lists are written in the same order, so that the *n*th word of each list relates to the same sweep (for instance, the third word of each list is `8`, `safeguarded_eul/ns8_2015_derived.dta` and `W8DGHQSC`, respectively). Note, the entries in `files` include the subfolder in which each file is stored. As the entries in a list are separated by spaces, this approach relies on the file paths and variable names not containing spaces. (See [*Data Discovery*](https://cls-data.github.io/data-handling-stata/docs/next_steps-data_discovery.html) for ways of finding the names of the files and variables you need.)
+
+Macros contain text that is associated with a name (the global `sweeps` contains the string `2 4 8 9`). These are useful in Stata programming as an alternative way of storing data to columns in a dataset. Macros are either `global` or `local`. Global macros persist across the entire Stata session, while local macros (created with the `local` command) only persist within the program or do-file in which they are created. For more on macros, see this [Stata help page](https://www.stata.com/manuals/pmacro.pdf).
+
+```{stata}
+* Lookup lists: the nth word of each list gives the sweep, file and variable to use
+global sweeps 2 4 8 9
+global files safeguarded_eul/wave_two_lsype_young_person_2020.dta safeguarded_eul/wave_four_lsype_young_person_2020.dta safeguarded_eul/ns8_2015_derived.dta safeguarded_eul/ns9_2022_derived_variables.dta
+global ghq_vars W2ghq12scr W4ghq12scr W8DGHQSC W9DGHQSC
+```
+
+## Merging Programmatically
+
+Before merging the datasets together, we need to load the data for each sweep. We can do this by defining a [`program`](https://www.stata.com/manuals/pprogram.pdf), `load_ghq_wide`, which takes a single argument, `i`, and loads the GHQ-12 data for the `i`th entry in the lookup lists.
+
+-   `capture program drop ...` attempts to delete the program, with `capture` preventing an error if it does not exist.
+-   `args i` specifies that the program takes a single argument, which is transferred into the local macro `i` to be used within the `program` code.
+-   ```local file : word `i' of ${files}``` (a macro extended function) takes the `i`th word of the global macro `files` and stores it in the local macro `file`. The next line does the same for the name of the GHQ-12 variable, storing it in the local macro `ghq_var`.
+-   Finally, the program uses ```use NSID `ghq_var' using "`file'", clear``` to read in the identifier and the GHQ-12 variable from the relevant dataset.
+
+To confirm the program is working correctly, below we also call it to load data from the eighth sweep (the third entry in the lookup lists).
+
+```{stata}
+capture program drop load_ghq_wide
+program define load_ghq_wide
+	args i
+
+	local file : word `i' of ${files}
+	local ghq_var : word `i' of ${ghq_vars}
+
+	use NSID `ghq_var' using "`file'", clear
+end
+
+load_ghq_wide 3
+list * in 1/10
+```
+
+We can use a loop to load and merge the data for the four sweeps. We first load the data for Sweep 2 (`load_ghq_wide 1`), then loop over the remaining entries in the lookup lists (entries 2 to 4; i.e., Sweeps 4, 8 and 9), loading each dataset in turn and merging it with the master dataset. `preserve` and `restore` are used to temporarily save and restore the master dataset while loading each new sweep's data, which is saved in a temporary file created with `tempfile`. The `nogenerate` option ensures that `Stata` does not create the `_merge` variable; without it, the second merge would stop with an error as `_merge` would already exist. We save the merged dataset (`temp_ghq_wide.dta`) as we will use it again at the end of this page.
+
+```{stata}
+load_ghq_wide 1
+
+tempfile next_merge
+forvalues i = 2/4 {
+    preserve
+		load_ghq_wide `i'
+		save "`next_merge'", replace
+	restore
+	merge 1:1 NSID using "`next_merge'", nogenerate
+}
+
+sort NSID
+list * in 1/10
+save "temp_ghq_wide.dta", replace
+```
+
+`merge` prints a table for each of the three merges. The merged dataset has one row for each cohort member who took part in at least one of the four sweeps, with a GHQ-12 variable for each sweep. Cohort members have a missing value (`.`) for the sweeps they did not take part in.
+
+## Appending Programmatically
+
+To append the datasets together, we create a second program, `load_ghq_long`, to load the GHQ-12 data from a given sweep and format it so that it can be appended to the other sweeps (i.e., giving variables consistent names). This calls the `load_ghq_wide` program defined above to load the data. As the GHQ-12 variable is not named consistently across sweeps, removing the sweep prefix is not sufficient here. Instead, we use `rename` to give the variable a new name, `ghq12`. We also add a variable identifying the sweep, taking its value from the `sweeps` lookup list. Note, the GHQ-12 variables have value labels attached to the negative values that indicate different types of missing data. The value labels (and the values used for missing data) differ between the DfE and CLS eras, so we use `label values ghq12 .` to remove the labels.
+
+```{stata}
+capture program drop load_ghq_long
+program define load_ghq_long
+	args i
+
+	load_ghq_wide `i'
+	local ghq_var : word `i' of ${ghq_vars}
+	local sweep : word `i' of ${sweeps}
+	rename `ghq_var' ghq12
+	label values ghq12 . // Removes value labels, which differ between sweeps
+	gen sweep = `sweep'
+end
+```
+
+To load data from Sweeps 2, 4, 8 and 9 and append them together, we can again use a loop. We first load the data for Sweep 2 (`load_ghq_long 1`), then loop over the remaining entries in the lookup lists to append these in, again using `preserve` and `restore` to temporarily save and restore the master dataset while loading each new sweep's data. As before, we use `sort` to sort the dataset by ID and sweep.
+
+```{stata}
+load_ghq_long 1
+
+tempfile next_append
+forvalues i = 2/4 {
+    preserve
+		load_ghq_long `i'
+		save "`next_append'", replace
+	restore
+    append using "`next_append'"
+}
+
+sort NSID sweep
+list * in 1/10
+```
+
+Before using these data, the negative values would need to be replaced with missing values (`.`). Below, we do this with the `negative_to_na` program introduced in [*Data Structures*](https://cls-data.github.io/data-handling-stata/docs/next_steps-data_structures.html#missing-values). Here, we run the program without its `generate()` option, so the values of `ghq12` itself are changed.
+
+```{stata}
+capture program drop negative_to_na
+program define negative_to_na
+	syntax varlist(numeric) [, GENerate(name)]
+	if "`generate'" != "" {
+		clonevar `generate' = `varlist'
+		local varlist `generate'
+	}
+	recode `varlist' (min/-1 = .)
+end
+
+negative_to_na ghq12
+list * in 1/10
+```
+
+# Coda: Defining the Sample with the Longitudinal File
+
+A cohort member only appears in a sweep's files if they took part in that sweep. The combined datasets created above therefore only include cohort members who took part in at least one of the sweeps used, and do not tell us *why* a cohort member has no data for a particular sweep. This is especially relevant in Next Steps because [an ethnic minority boost sample was added to the study at Sweep 4](https://cls-data.github.io/data-handling-stata/docs/next_steps-data_structures.html). Boost sample members have no data for Sweeps 1-3 because they were not yet part of the study, not because they did not respond.
+
+The file `safeguarded_eul/ns9_2022_longitudinal_file.dta` contains one row for every cohort member, along with the fieldwork outcome at each sweep (`W1OUTCOME`, `W2OUTCOME`, ..., `W9OUTCOME`) and a variable indicating whether the cohort member belongs to the original or boost sample (`MAINBOOST`). (Boost sample members can also be identified with the variable `W4Boost` in `wave_four_lsype_young_person_2020.dta`.) It is good practice to begin with this file and merge other data onto it using `merge` with the `keep(master match)` option, so that the dataset contains all cohort members. Below, we load the file, tabulate `MAINBOOST`, and merge on the wide GHQ-12 dataset created above. Note, we can use wildcards to load several variables at once: `W?OUTCOME` matches any variable name made up of `W`, a single character, and `OUTCOME`.
+
+```{stata}
+use NSID MAINBOOST W?OUTCOME using "safeguarded_eul/ns9_2022_longitudinal_file.dta", clear
+tabulate MAINBOOST
+merge 1:1 NSID using "temp_ghq_wide.dta", keep(master match) nogenerate
+```
+
+The first table shows the number of cohort members in the original (main) and boost samples. The second shows the result of the merge: every cohort member in the longitudinal file is kept, whether or not they have GHQ-12 data from any of the four sweeps. The merged dataset can then be inspected with `list`, as elsewhere on this page (we do not run this command here, so no output is shown).
+
+```stata
+list * in 1/10
+```
+
+The boost sample can then be dropped with `keep if MAINBOOST == 1` where an analysis uses data from Sweeps 1-3.

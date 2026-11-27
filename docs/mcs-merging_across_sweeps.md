@@ -19,14 +19,14 @@ In this section, we show how to combine MCS data across sweeps, assuming
 the data to be merged are in a consistent format (e.g., one row per
 family); for information on munging data to have a consistent structure
 see the page [*Combining Data Within a
-Sweep*](https://cls-data.github.io/docs/mcs-merging_within_sweep.html)
+Sweep*](https://cls-data.github.io/data-handling-stata/docs/mcs-merging_within_sweep.html)
 
 As an example, we use data on cohort members’ height, which was recorded
 in Sweeps 2-7 and is available in the `mcs[2-7]_cm_interview.dta` files.
 These files contain one row per cohort-member. As a reminder, we have
 organised the data files so that each sweep [has its own folder, which
 is named according to the age of
-follow-up](https://cls-data.github.io/docs/mcs-sweep_folders.html)
+follow-up](https://cls-data.github.io/data-handling-stata/docs/mcs-sweep_folders.html)
 (e.g., 3y for the second sweep).
 
 We begin by combining data from the second and third sweeps, showing how
@@ -40,7 +40,7 @@ multiple sweeps *programmatically* using loops and programs.
 The variable `[B-G]CHTCM00` contains the height of the cohort member at
 Sweep 2-7, except for Sweep 5, where the variable is called `ECHTCMA0`.
 [The cohort-member identifiers are stored across two
-variables](https://cls-data.github.io/docs/mcs-data_structures.html) in
+variables](https://cls-data.github.io/data-handling-stata/docs/mcs-data_structures.html) in
 the `mcs[2-7]_cm_interview.dta` files: `MCSID` and `[A-G]CNUM00`.
 `MCSID` is the family identifier and `[A-G]CNUM00` identifies the cohort
 member within the family. We will use the `use` command to read in the

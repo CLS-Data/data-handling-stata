@@ -17,7 +17,7 @@ In this section, we show how to reshape data from long to wide (and vice versa).
 
 # Reshaping Raw Data from Wide to Long
 
-We begin by loading the data from each sweep and merging these together into a single *wide* format data frame; see [Combining Data Across Sweeps](https://cls-data.github.io/docs/bcs70-merging_across_sweeps.html) for further explanation on how this is achieved. Note, the names of the height and weight variables in Sweep 8 and Sweep 11 follow a similar convention, which is the exception rather than the rule in BCS70 data (at least in early sweeps). Below, we convert the variable names in the Sweep 9 dataset to lower case so that they closely match those in the Sweep 11 dataset. This will make reshaping easier.
+We begin by loading the data from each sweep and merging these together into a single *wide* format data frame; see [Combining Data Across Sweeps](https://cls-data.github.io/data-handling-stata/docs/bcs70-merging_across_sweeps.html) for further explanation on how this is achieved. Note, the names of the height and weight variables in Sweep 8 and Sweep 11 follow a similar convention, which is the exception rather than the rule in BCS70 data (at least in early sweeps). Below, we convert the variable names in the Sweep 9 dataset to lower case so that they closely match those in the Sweep 11 dataset. This will make reshaping easier.
 
 ```{stata}
 * Load 42y data

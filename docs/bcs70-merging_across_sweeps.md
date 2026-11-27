@@ -21,7 +21,7 @@ As an example, we use data on cohort members’ height. Variables for this
 are contained in files which have one row per cohort-member. As a
 reminder, we have organised the data files so that each sweep [has its
 own folder, which is named according to the age of
-follow-up](https://cls-data.github.io/docs/bcs70-sweep_folders.html)
+follow-up](https://cls-data.github.io/data-handling-stata/docs/bcs70-sweep_folders.html)
 (e.g., 10y for the third major sweep).
 
 We begin by combining data from the Sweeps 9 (42y) and Sweep 11 (51y),
@@ -31,7 +31,7 @@ formats by *merging* and *appending*, respectively. Because variable
 names change between sweeps in unpredictable ways, it is not
 straightforwardly possible to combine data from multiple sweeps
 *programmatically* (as we are able to do for, e.g., the
-[MCS](https://cls-data.github.io/docs/mcs-merging_across_sweeps.html)).
+[MCS](https://cls-data.github.io/data-handling-stata/docs/mcs-merging_across_sweeps.html)).
 
 # Merging Across Sweeps
 
